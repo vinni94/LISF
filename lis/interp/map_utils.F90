@@ -145,6 +145,8 @@ module map_utils
 !               Brent L. Shaw, NOAA/FSL (CSU/CIRA)
 ! 09 Apr 2001 - Added compare\_projections routine to compare two
 !               sets of projection parameters.
+! 30 Jun 2021 - Michel Bechtold, Samuel Scherrer, bug fix for latlon projection
+!               occurred at edges of subdomains in parallel mode
 
 implicit none
 
