@@ -374,6 +374,9 @@ contains
        elseif(NASASMAPsm_struc(n)%data_designation.eq."SPL2SMP_E") then
           NASASMAPsm_struc(n)%nc = 3856
           NASASMAPsm_struc(n)%nr = 1624
+       elseif(NASASMAPsm_struc(n)%data_designation.eq."SPL2SMAP_E") then
+          NASASMAPsm_struc(n)%nc = 11568
+          NASASMAPsm_struc(n)%nr = 4872
        endif
 
        allocate(NASASMAPsm_struc(n)%smobs(LIS_rc%obs_lnc(k),LIS_rc%obs_lnr(k)))
@@ -595,6 +598,15 @@ contains
           gridDesci(9) = 5 !M09 grid
           gridDesci(20) = 64
           gridDesci(10) = 0.09 
+          gridDesci(11) = 1 !for the global switch
+        elseif(NASASMAPsm_struc(n)%data_designation.eq."SPL2SMAP_E") then
+          gridDesci = 0
+          gridDesci(1) = 9
+          gridDesci(2) = 11568 ! number of columns for 3km SMAP enhanced data (https://nsidc.org/data/user-resources/help-center/guide-ease-grids)
+          gridDesci(3) = 4872 ! number of rows for 3km SMAP enhanced data (https://nsidc.org/data/user-resources/help-center/guide-ease-grids)
+          gridDesci(9) = 6 !M09 grid
+          gridDesci(20) = 64
+          gridDesci(10) = 0.03 
           gridDesci(11) = 1 !for the global switch
        endif
 

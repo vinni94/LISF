@@ -176,6 +176,30 @@ subroutine compute_grid_coord_ease(gridDesc,npts,fill,xpts,ypts,&
            enddo
         endif
 
+      elseif(gridDesc(9).eq.6) then !'M03 grid' ! Set option 6 for M03 grid !VH
+        if(gridDesc(11).eq.1) then 
+           do n=1,npts
+              lat1=rlat(n)
+              lon1=rlon(n)
+              if (lon1>180)then
+                 lon1=lon1-360
+              end if
+              if(abs(lon1).le.180.and.abs(lat1).le.90) then  
+                 call easeV2_convert('M03',lat1,lon1,xpts(n),ypts(n))
+              else
+                 xpts(n) = fill
+                 ypts(n) = fill
+              endif
+           enddo
+           
+        else
+           call map_set(PROJ_EASEV2,gridDesc(4),gridDesc(5),&
+                gridDesc(9),gridDesc(9),gridDesc(9),0.0,&
+                nint(gridDesc(2)),nint(gridDesc(3)),proj)
+           do n=1,npts
+              call latlon_to_ij(proj,rlat(n), rlon(n), xpts(n),ypts(n))
+           enddo
+        endif
      endif
   else
      iret=-1

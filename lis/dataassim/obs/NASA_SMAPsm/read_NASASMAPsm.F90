@@ -204,7 +204,83 @@ subroutine read_NASASMAPsm(n, k, OBS_State, OBS_Pert_State)
                  NASASMAPsm_struc(n)%smobs,timenow)
          enddo
          call LIS_releaseUnitNumber(ftn)
+      !=====================================================================
+      ! VH: SMAP 3 km (SPL2SMAP_E) 3km data reader
+      !=====================================================================
+     elseif (NASASMAPsm_struc(n)%data_designation .eq. "SPL2SMAP_E") then
+      !------------------------------------------------------------
+      ! Format the current LIS date/time
+      !------------------------------------------------------------
+      write(yyyy,'(i4.4)') LIS_rc%yr
+      write(mm,'(i2.2)') LIS_rc%mo
+      write(dd,'(i2.2)') LIS_rc%da
+      write(hh,'(i2.2)') LIS_rc%hr
 
+      if (LIS_masterproc) then
+         ! Build file pattern for SMAP L2 3km data
+         list_files = trim(smobsdir)//'/'//trim(yyyy)//'.'//trim(mm)//'.'// &
+                     trim(dd)//'/SMAP_L2_SM_SP_1*IWDV_'// &
+                     trim(yyyy)//trim(mm)//trim(dd)//'T'//trim(hh)//'*.h5'
+
+         write(LIS_logunit,*) '[INFO] Searching for ', trim(list_files)
+
+         rc = create_filelist(trim(list_files)//char(0), &
+                              "SMAP_filelist_3km.dat"//char(0))
+         if (rc /= 0) then
+            write(LIS_logunit,*) '[WARN] Problem encountered when searching for SMAP 3km files'
+            write(LIS_logunit,*) 'Was searching for ', trim(list_files)
+            write(LIS_logunit,*) 'LIS will continue...'
+         endif
+      endif
+
+   #if (defined SPMD)
+      call mpi_barrier(lis_mpi_comm, ierr)
+   #endif
+
+      !------------------------------------------------------------
+      ! Open the generated file list
+      !------------------------------------------------------------
+      ftn = LIS_getNextUnitNumber()
+      open(ftn, file="./SMAP_filelist_3km.dat", status='old', iostat=ierr)
+
+      do while(ierr == 0)
+         read(ftn,'(a)', iostat=ierr) fname
+         if (ierr /= 0) exit
+
+         !------------------------------------------------------------
+         ! Extract timestamp from filename (HHMM)
+         !------------------------------------------------------------
+         mn_ind = index(fname, trim(yyyy)//trim(mm)//trim(dd)//'T') + 13
+         read(fname(mn_ind:mn_ind+1), '(i2.2)') mn
+         read(fname(mn_ind+2:mn_ind+3), '(i2.2)') ss
+
+         ! Compute LIS timenow for this file
+         call LIS_tick(timenow, doy, gmt, LIS_rc%yr, LIS_rc%mo, LIS_rc%da, &
+                     LIS_rc%hr, mn, ss, 0.0)
+
+         write(LIS_logunit,*) '[INFO] Reading SMAP 3km file: ', trim(fname)
+
+         !------------------------------------------------------------
+         ! Read and interpolate SMAP 3km data
+         !------------------------------------------------------------
+         call read_SPL2SMAP_E_data(n, k, fname, NASASMAPsm_struc(n)%smobs)
+
+         !------------------------------------------------------------
+         ! Assign observation time to valid grid cells
+         !------------------------------------------------------------
+         do r = 1, LIS_rc%obs_lnr(k)
+            do c = 1, LIS_rc%obs_lnc(k)
+               if (NASASMAPsm_struc(n)%smobs(c,r) /= -9999.0) then
+                  NASASMAPsm_struc(n)%smtime(c,r) = timenow
+               endif
+            enddo
+         enddo
+
+      enddo
+
+      call LIS_releaseUnitNumber(ftn)
+
+      
       elseif (NASASMAPsm_struc(n)%data_designation .eq. "SPL3SMP_E") then
 !---------------------------------------------------------------------------
 ! MN: create filename for 9 km product
@@ -1184,6 +1260,172 @@ subroutine read_NASASMAP_E_data(n, k, pass, fname, smobs_ip)
 #endif
 
 end subroutine read_NASASMAP_E_data
+
+!BOP
+! 
+! !ROUTINE: read_NASASMAP_E_data
+! \label{read_NASASMAP_E_data}
+! Author: Vinayak Huggannavar, METEORI, KU Leuven, Belgium VH
+! !INTERFACE:
+
+subroutine read_SPL2SMAP_E_data(n, k, fname, smobs_ip)
+!
+! Reads SMAP L2 3 km (SPL2SMAP_E) soil moisture data and interpolates
+! it to the LIS domain at the current LIS timestep.
+!
+  use LIS_coreMod,  only : LIS_rc
+  use LIS_logMod
+  use LIS_timeMgrMod
+  use NASASMAPsm_Mod, only : NASASMAPsm_struc
+#if (defined USE_HDF5) 
+  use hdf5
+#endif
+
+  implicit none
+
+! Input/Output parameters
+  integer           :: n, k
+  character(len=*)  :: fname
+  real              :: smobs_ip(LIS_rc%obs_lnc(k)*LIS_rc%obs_lnr(k))
+
+! Local variables
+#if (defined USE_HDF5)
+  integer(hid_t) :: file_id, sm_gr_id, sm_field_id, sm_qa_id, vwc_field_id
+  integer(hid_t) :: dataspace, memspace
+  integer(hsize_t), dimension(2) :: dimsm, count_file, count_mem, offset_mem, offset_file
+  integer        :: memrank = 2, status, ios
+  integer(hsize_t), allocatable :: dims(:)
+  real, allocatable :: sm_field(:,:), vwc_field(:,:)
+  integer, allocatable :: sm_qa(:,:)
+  real             :: sm_data(NASASMAPsm_struc(n)%nc*NASASMAPsm_struc(n)%nr)
+  logical*1        :: sm_data_b(NASASMAPsm_struc(n)%nc*NASASMAPsm_struc(n)%nr)
+  logical*1        :: smobs_b_ip(LIS_rc%obs_lnc(k)*LIS_rc%obs_lnr(k))
+  integer          :: c, r, t
+  character*100    :: sm_gr_name, sm_field_name, sm_qa_name, vwc_field_name
+
+  ! Assign dataset names (3 km product has no AM/PM distinction)
+  sm_gr_name      = "Soil_Moisture_Retrieval_Data"
+  sm_field_name   = "soil_moisture"
+  sm_qa_name      = "retrieval_qual_flag"
+  vwc_field_name  = "vegetation_water_content"
+
+  dimsm      = (/NASASMAPsm_struc(n)%nc, NASASMAPsm_struc(n)%nr/)
+  count_file = dimsm
+  count_mem  = dimsm
+  offset_mem = (/0,0/)
+  offset_file= (/0,0/)
+
+  allocate(sm_field(dimsm(1), dimsm(2)))
+  allocate(sm_qa(dimsm(1), dimsm(2)))
+  allocate(vwc_field(dimsm(1), dimsm(2)))
+  allocate(dims(2))
+  dims = dimsm
+  
+    ! Open HDF5 interface
+  call h5open_f(status)
+  call LIS_verify(status, 'Error opening HDF5 interface')
+  
+  ! Open HDF5 file
+  call h5fopen_f(trim(fname), H5F_ACC_RDONLY_F, file_id, status)
+  call LIS_verify(status, 'Error opening SMAP 3km file: '//trim(fname))
+  
+  ! Open group
+  call h5gopen_f(file_id, sm_gr_name, sm_gr_id, status)
+  call LIS_verify(status, 'Error opening group: '//trim(sm_gr_name))
+  
+  ! Open soil moisture dataset
+  call h5dopen_f(sm_gr_id, sm_field_name, sm_field_id, status)
+  call LIS_verify(status, 'Error opening dataset: '//trim(sm_field_name))
+  
+  call h5dget_space_f(sm_field_id, dataspace, status)
+  call LIS_verify(status, 'Error getting dataspace for: '//trim(sm_field_name))
+  
+  call h5sselect_hyperslab_f(dataspace, H5S_SELECT_SET_F, start=offset_file, &
+                             count=count_file, hdferr=status)
+  call LIS_verify(status, 'Error selecting hyperslab for: '//trim(sm_field_name))
+  
+  call h5screate_simple_f(memrank, dimsm, memspace, status)
+  call LIS_verify(status, 'Error creating memory dataspace for: '//trim(sm_field_name))
+  
+  call h5sselect_hyperslab_f(memspace, H5S_SELECT_SET_F, start=offset_mem, &
+                             count=count_mem, hdferr=status)
+  call LIS_verify(status, 'Error selecting memory hyperslab for: '//trim(sm_field_name))
+  
+  call h5dread_f(sm_field_id, H5T_NATIVE_REAL, sm_field, dims, status, memspace, dataspace)
+  call LIS_verify(status, 'Error reading dataset: '//trim(sm_field_name))
+  
+  call h5dclose_f(sm_field_id, status)
+  call LIS_verify(status, 'Error closing dataset: '//trim(sm_field_name))
+  
+  ! Read QA dataset
+  call h5dopen_f(sm_gr_id, sm_qa_name, sm_qa_id, status)
+  call LIS_verify(status, 'Error opening QA dataset: '//trim(sm_qa_name))
+  
+  call h5dread_f(sm_qa_id, H5T_NATIVE_INTEGER, sm_qa, dims, status, memspace, dataspace)
+  call LIS_verify(status, 'Error reading QA dataset: '//trim(sm_qa_name))
+  
+  call h5dclose_f(sm_qa_id, status)
+  call LIS_verify(status, 'Error closing QA dataset: '//trim(sm_qa_name))
+  
+  ! Read VWC dataset
+  call h5dopen_f(sm_gr_id, vwc_field_name, vwc_field_id, status)
+  call LIS_verify(status, 'Error opening VWC dataset: '//trim(vwc_field_name))
+  
+  call h5dread_f(vwc_field_id, H5T_NATIVE_REAL, vwc_field, dims, status, memspace, dataspace)
+  call LIS_verify(status, 'Error reading VWC dataset: '//trim(vwc_field_name))
+  
+  call h5dclose_f(vwc_field_id, status)
+  call LIS_verify(status, 'Error closing VWC dataset: '//trim(vwc_field_name))
+  
+  ! Close group and file
+  call h5gclose_f(sm_gr_id, status)
+  call LIS_verify(status, 'Error closing group: '//trim(sm_gr_name))
+  
+  call h5fclose_f(file_id, status)
+  call LIS_verify(status, 'Error closing file: '//trim(fname))
+  
+  ! Close HDF5 interface
+  call h5close_f(status)
+  call LIS_verify(status, 'Error closing HDF5 interface')
+    !--------------------------------------------------------------------------
+    ! Apply QA and VWC filter
+  !--------------------------------------------------------------------------
+  sm_data_b = .false.
+  t = 1
+  do r = 1, NASASMAPsm_struc(n)%nr
+     do c = 1, NASASMAPsm_struc(n)%nc
+        sm_data(t) = sm_field(c,r)
+        if (vwc_field(c,r) > 5.0) then
+           sm_data(t) = LIS_rc%udef
+        else
+           if (sm_data(t) /= -9999.0) then
+              if (ibits(sm_qa(c,r), 0, 1) == 0) then
+                 sm_data_b(t) = .true.
+              else
+                 sm_data(t) = -9999.0
+              endif
+           endif
+        endif
+        t = t + 1
+     end do
+  end do
+
+  !--------------------------------------------------------------------------
+  ! Interpolate to LIS running domain
+  !--------------------------------------------------------------------------
+  call neighbor_interp(LIS_rc%obs_gridDesc(k,:), sm_data_b, sm_data, smobs_b_ip, smobs_ip, &
+                       NASASMAPsm_struc(n)%nc*NASASMAPsm_struc(n)%nr, &
+                       LIS_rc%obs_lnc(k)*LIS_rc%obs_lnr(k), &
+                       NASASMAPsm_struc(n)%rlat, NASASMAPsm_struc(n)%rlon, &
+                       NASASMAPsm_struc(n)%n11, LIS_rc%udef, ios)
+
+  deallocate(sm_field, sm_qa, vwc_field, dims)
+
+#endif
+
+end subroutine read_SPL2SMAP_E_data
+
+
 
 ! MN: the data structure in both 36 km and 9 km products is the same therefore  
 !         read_NASASMAP_E_data is similar to read_NASASMAP_data
