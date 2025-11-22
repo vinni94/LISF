@@ -23,7 +23,7 @@
 !  8 July 2020: David Mocko: Removed config entry to toggle the QC check.
 !                            The QC is now always ON for NASA SMAP SM DA.
 !  11 Aug 2020: Yonghwan Kwon: Incorporated Sujay's modifications to support SMAP L2 assimilation
-!
+!  
 module NASASMAPsm_Mod
 ! !USES: 
   use ESMF
@@ -221,6 +221,14 @@ contains
        call LIS_verify(status, "SMAP(NASA) soil moisture number of bins in the CDF: not defined")
     enddo
 
+    ! VH 20251122: read irrigated anomaly file option
+    call ESMF_ConfigFindLabel(LIS_config, "SMAP(NASA) irrigation anomaly file:", rc=status)
+    do n=1, LIS_rc%nnest
+      call ESMF_ConfigGetAttribute(LIS_config,NASASMAPsm_struc(n)%irrigated_anomaly_file, rc=status)
+      call LIS_verify(status, "SMAP(NASA) soil moisture irrigated anomaly file: not defined")
+    enddo
+     ! End VH 20251122
+    
    do n=1, LIS_rc%nnest
       NASASMAPsm_struc(n)%cdf_read_mon = .false.   
 

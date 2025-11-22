@@ -932,6 +932,7 @@ contains
        endif
     enddo
     TRACE_EXIT("DA_rescaleLin")
+    
   end subroutine LIS_rescale_with_linear_scaling
 
 !------------------------------------------------------------------kyh20210422
@@ -997,7 +998,72 @@ contains
     enddo
     TRACE_EXIT("DA_rescaleAno")
   end subroutine LIS_rescale_with_anomaly
-!------------------------------------------------------------------kyh20210422
+!------------------------------------------------------------------VH20251122
+!------------------------------------------------------------------VH20251122
+!BOP
+! 
+! !ROUTINE: LIS_rescale_with_irr_anomaly
+! \label{LIS_rescale_with_anomaly}
+!
+! !INTERFACE:
+  subroutine LIS_rescale_with_irr_anomaly(&
+       n,             &
+       k,             &
+       nbins,         &
+       ntimes,        &
+       obs_mu,    &
+       model_mu,       &
+       obs_value)
+
+    implicit none
+! 
+! !ARGUMENTS: 
+    integer             :: n
+    integer             :: k
+    integer             :: nbins
+    integer             :: ntimes
+    real                :: obs_mu(LIS_rc%obs_ngrid(k),ntimes)
+    real                :: model_mu(LIS_rc%obs_ngrid(k),ntimes)
+    real                :: obs_value(LIS_rc%obs_lnc(k),LIS_rc%obs_lnr(k))
+!
+! !DESCRIPTION: 
+! 
+!   This routine rescales the input observation data 
+!EOP
+
+    integer             :: t,kk
+    integer             :: col,row
+    real                :: obs_tmp
+    real                :: obs_anomaly
+
+
+    TRACE_ENTER("DA_rescaleAno")
+    if(ntimes.gt.1) then
+       kk = LIS_rc%mo
+    else
+       kk = 1
+    endif
+    do t=1,LIS_rc%obs_ngrid(k)
+
+       col = LIS_obs_domain(n,k)%col(t)
+       row = LIS_obs_domain(n,k)%row(t)
+
+       if(obs_value(col,row).ne.-9999.0) then
+
+          obs_anomaly = obs_value(col,row) - obs_mu(t,kk)
+          obs_tmp = model_mu(t,kk) + obs_anomaly
+          if (obs_tmp.lt.0.01) then
+             obs_tmp = 0.01
+          endif
+          obs_value(col,row) = obs_tmp
+       else
+          obs_value(col,row) = LIS_rc%udef
+       endif
+    enddo
+    TRACE_EXIT("DA_rescaleAno")
+  end subroutine LIS_rescale_with_irr_anomaly
+!------------------------------------------------------------------VH20251122
+  
 !
 !MN 2022.02.24
 !BOP

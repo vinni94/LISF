@@ -656,6 +656,17 @@ subroutine read_NASASMAPsm(n, k, OBS_State, OBS_Pert_State)
              NASASMAPsm_struc(n)%obs_mu,    &
              NASASMAPsm_struc(n)%model_mu,       &
              sm_current)
+   elseif(LIS_rc%dascaloption(k).eq."IRR Anomaly scaling".and.fnd.ne.0) then    !kyh20210422
+        call LIS_rescale_with_irr_anomaly(    &
+             n,                                   &
+             k,                                   &
+             NASASMAPsm_struc(n)%nbins,         &
+             NASASMAPsm_struc(n)%ntimes,        &
+             NASASMAPsm_struc(n)%obs_mu,    &
+             NASASMAPsm_struc(n)%model_mu,       &
+             NASASMAPsm_struc(n)%obs_sigma,    &
+             NASASMAPsm_struc(n)%model_sigma,       &
+             sm_current)
 
    endif
 
