@@ -1006,62 +1006,47 @@ contains
 ! \label{LIS_rescale_with_anomaly}
 !
 ! !INTERFACE:
-  subroutine LIS_rescale_with_irr_anomaly(&
-       n,             &
-       k,             &
-       nbins,         &
-       ntimes,        &
-       obs_mu,    &
-       model_mu,       &
+  subroutine LIS_rescale_with_irr_anomaly( &
+       n, &
+       k, &
+       obs_anomaly, &
+       model_clim, &
        obs_value)
 
     implicit none
-! 
-! !ARGUMENTS: 
-    integer             :: n
-    integer             :: k
-    integer             :: nbins
-    integer             :: ntimes
-    real                :: obs_mu(LIS_rc%obs_ngrid(k),ntimes)
-    real                :: model_mu(LIS_rc%obs_ngrid(k),ntimes)
-    real                :: obs_value(LIS_rc%obs_lnc(k),LIS_rc%obs_lnr(k))
-!
-! !DESCRIPTION: 
-! 
-!   This routine rescales the input observation data 
-!EOP
 
-    integer             :: t,kk
-    integer             :: col,row
-    real                :: obs_tmp
-    real                :: obs_anomaly
+    ! Arguments
+    integer :: n, k
+    real :: obs_anomaly(LIS_rc%obs_ngrid(k), :)
+    real :: model_clim(LIS_rc%obs_ngrid(k), :)
+    real :: obs_value(LIS_rc%obs_lnc(k), LIS_rc%obs_lnr(k))
 
+    ! Locals
+    integer :: t, kk
+    integer :: col, row
+    real :: obs_tmp
 
-    TRACE_ENTER("DA_rescaleAno")
-    if(ntimes.gt.1) then
-       kk = LIS_rc%mo
-    else
-       kk = 1
-    endif
-    do t=1,LIS_rc%obs_ngrid(k)
+    ! Get current climatology time index kk corresponding to model step k
+    kk = LIS_rc%da
 
-       col = LIS_obs_domain(n,k)%col(t)
-       row = LIS_obs_domain(n,k)%row(t)
+    ! Loop over observation grid points
+    do t = 1, LIS_rc%obs_ngrid(k)
+        col = LIS_obs_domain(n,k)%col(t)
+        row = LIS_obs_domain(n,k)%row(t)
 
-       if(obs_value(col,row).ne.-9999.0) then
+        if (obs_value(col,row) .ne. -9999.0) then
+            obs_tmp = model_clim(t,kk) + obs_anomaly(t,k)  ! Apply anomaly adjustment
 
-          obs_anomaly = obs_value(col,row) - obs_mu(t,kk)
-          obs_tmp = model_mu(t,kk) + obs_anomaly
-          if (obs_tmp.lt.0.01) then
-             obs_tmp = 0.01
-          endif
-          obs_value(col,row) = obs_tmp
-       else
-          obs_value(col,row) = LIS_rc%udef
-       endif
+            if (obs_tmp < 0.01) obs_tmp = 0.01  ! Minimum threshold
+
+            obs_value(col,row) = obs_tmp
+        else
+            obs_value(col,row) = LIS_rc%udef
+        endif
     enddo
-    TRACE_EXIT("DA_rescaleAno")
-  end subroutine LIS_rescale_with_irr_anomaly
+
+end subroutine LIS_rescale_with_irr_anomaly
+
 !------------------------------------------------------------------VH20251122
   
 !
@@ -1233,7 +1218,52 @@ contains
   end subroutine LIS_rescale_with_stratified_CDF
 !MN 2022.02.24
 
+!VH20251124 
+!BOP
+! !ROUTINE: LIS_getCDFattributes_irr
+! \label{LIS_getCDFattributes_irr}  
+subroutine LIS_getCDFattributes_irr(k, irr_filename, clim_filename, ntimes_anom, ntimes_clim)
+    implicit none
 
+    integer, intent(in) :: k
+    character(len=*), intent(in) :: irr_filename        ! Irrigation anomaly NetCDF file
+    character(len=*), intent(in) :: clim_filename       ! Model climatology NetCDF file
+    integer, intent(out) :: ntimes_anom
+    integer :: ngrid_anom
+    integer, intent(out) :: ntimes_clim
+    integer :: ngrid_clim
+
+    integer :: nid, dimid, ierr
+
+    ! Read irrigation anomaly file attributes
+#if(defined USE_NETCDF3 || defined USE_NETCDF4)
+    call LIS_verify(nf90_open(trim(irr_filename), NF90_NOWRITE, nid), &
+        'Failed to open irrigation anomaly file: '//trim(irr_filename))
+
+    call LIS_verify(nf90_inq_dimid(nid, 'ngrid', dimid), 'Error nf90_inq_dimid on anomaly')
+    call LIS_verify(nf90_inquire_dimension(nid, dimid, len=ngrid_anom), 'Error nf90_inquire_dimension on anomaly')
+
+    call LIS_verify(nf90_get_att(nid, NF90_GLOBAL, 'temporal_resolution_irr', ntimes_anom), 'Error in nf90_get_att temporal_resolution_CDF anomaly')
+
+    call LIS_verify(nf90_close(nid), 'Failed to close irrigation anomaly file')
+#endif
+
+    ! Read model climatology file attributes
+#if(defined USE_NETCDF3 || defined USE_NETCDF4)
+    call LIS_verify(nf90_open(trim(clim_filename), NF90_NOWRITE, nid), &
+        'Failed to open model climatology file: '//trim(clim_filename))
+
+    call LIS_verify(nf90_inq_dimid(nid, 'ngrid', dimid), 'Error nf90_inq_dimid on climatology')
+    call LIS_verify(nf90_inquire_dimension(nid, dimid, len=ngrid_clim), 'Error nf90_inquire_dimension on climatology')
+
+    call LIS_verify(nf90_get_att(nid, NF90_GLOBAL, 'temporal_resolution_irr', ntimes_clim), 'Error in nf90_get_att temporal_resolution_CDF climatology')
+
+    call LIS_verify(nf90_close(nid), 'Failed to close model climatology file')
+#endif
+
+end subroutine LIS_getCDFattributes_irr
+
+!VH20251124
 !BOP
 ! !ROUTINE: LIS_getCDFattributes
 ! \label{LIS_getCDFattributes}
@@ -1769,6 +1799,93 @@ contains
      TRACE_EXIT("DA_readSigma")
    end subroutine read_MeanSigmaData_month
 
+   !VH 2022.03.03-------------------------------------------------------
+   ! Here we read irrigation anomaly or climatology data from netCDF file
+  subroutine read_IrrAnomalyAndClimData(n, k, ntimes_anom, ntimes_clim, ngrid, &
+                                     anomaly_filename, anomaly_varname, obs_anomaly, &
+                                     clim_filename, clim_varname, model_clim)
+     
+    implicit none
+
+    ! Arguments      
+    integer, intent(in) :: n           ! index of nest/domain
+    integer, intent(in) :: k           ! model time step (for local grid indexing)
+    integer, intent(in) :: ntimes_anom ! number of assimilation time steps (anomaly)
+    integer, intent(in) :: ntimes_clim ! number of climatology time steps (e.g., 365)
+    integer, intent(in) :: ngrid       ! number of grid points
+
+    character(len=*), intent(in) :: anomaly_filename  ! anomaly netCDF file
+    character(len=*), intent(in) :: anomaly_varname   ! anomaly variable name
+    real, intent(out) :: obs_anomaly(ngrid, ntimes_anom)  ! output anomaly data
+
+    character(len=*), intent(in) :: clim_filename    ! climatology netCDF file
+    character(len=*), intent(in) :: clim_varname     ! climatology variable name
+    real, intent(out) :: model_clim(ngrid, ntimes_clim)   ! output climatology data
+
+!     integer :: ierr
+
+    ! Read irrigation anomaly data
+    call read_SingleNetCDFVariable(n, k, ntimes_anom, ngrid, anomaly_filename, anomaly_varname, obs_anomaly)
+     write(LIS_logunit,*) '[INFO] Successfully read anomaly values from the anomaly file ',trim(anomaly_filename)
+    ! Read model climatology data
+    call read_SingleNetCDFVariable(n, k, ntimes_clim, ngrid, clim_filename, clim_varname, model_clim)
+    write(LIS_logunit,*) '[INFO] Successfully read model climatology from the climatology file ',trim(clim_filename)
+
+end subroutine read_IrrAnomalyAndClimData
+
+
+! Helper subroutine to read one variable from a netCDF file
+subroutine read_SingleNetCDFVariable(n, k, ntimes, ngrid, filename, varname, data)
+    implicit none
+
+    integer, intent(in) :: n, k, ntimes, ngrid
+    character(len=*), intent(in) :: filename, varname
+    real, intent(out) :: data(ngrid, ntimes)
+
+    integer :: nid, varid, gId, ierr
+    integer :: ngrid_file, ntimes_file, j
+    real, allocatable :: file_data(:,:)
+#if(defined USE_NETCDF3 || defined USE_NETCDF4)
+
+    ierr = nf90_open(trim(filename), NF90_NOWRITE, nid)
+    if (ierr /= nf90_noerr) then
+        write(*,*) 'Error opening file: ', trim(filename)
+        stop
+    endif
+
+    call LIS_verify(nf90_inq_dimid(nid, 'ngrid', gId, ierr), &
+         'Error nf90_inq_dimid: ngrid')
+    call LIS_verify(nf90_inquire_dimension(nid, gId, len=ngrid_file, ierr), &
+         'Error nf90_inquire_dimension:ngrid')
+
+    call LIS_verify(nf90_inq_dimid(nid, 'ntimes', gId, ierr), &
+         'Error nf90_inq_dimid: ntime')
+    call LIS_verify(nf90_inquire_dimension(nid, gId, len=ntimes_file, ierr), &
+         'Error nf90_inquire_dimension:ntime')
+
+    allocate(file_data(ngrid_file, ntimes_file))
+
+    call LIS_verify(nf90_inq_varid(nid, trim(varname), varid, ierr), &
+         'nf90_inq_varid failed for '//trim(varname))
+
+    call LIS_verify(nf90_get_var(nid, varid, file_data, ierr), &
+         'nf90_get_var failed for '//trim(varname))
+
+    if (LIS_rc%obs_ngrid(k) > 0) then
+        do j = 1, ntimes
+            call LIS_convertObsVarToLocalSpace(n, k, file_data(:,j), data(:,j))
+        end do
+    endif
+
+    deallocate(file_data)
+    call nf90_close(nid, ierr)
+
+#endif
+
+end subroutine read_SingleNetCDFVariable
+
+
+   !VH 2022.03.03-------------------------------------------------------
 
 !BOP
 ! !ROUTINE: read_CDFtransferdata_all   

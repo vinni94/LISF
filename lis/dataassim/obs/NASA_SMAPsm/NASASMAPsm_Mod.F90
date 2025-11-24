@@ -77,7 +77,13 @@ module NASASMAPsm_Mod
                                              ! 1: read only the current month
      character(len=LIS_CONST_PATH_LEN) :: modelcdffile
      character(len=LIS_CONST_PATH_LEN) :: obscdffile
-
+     !VH 20251122: irrigation anomaly file name
+     character(len=LIS_CONST_PATH_LEN) :: irr_anomaly_filename
+     character(len=LIS_CONST_PATH_LEN) :: model_clim_filename
+     real, allocatable :: obs_anomaly(:,:)
+     real, allocatable :: model_clim(:,:)
+     integer :: ntimes_anom, ntimes_clim
+     !VH 20251122: end
   end type NASASMAPsm_dec
   
   type(NASASMAPsm_dec),allocatable :: NASASMAPsm_struc(:)
@@ -224,8 +230,14 @@ contains
     ! VH 20251122: read irrigated anomaly file option
     call ESMF_ConfigFindLabel(LIS_config, "SMAP(NASA) irrigation anomaly file:", rc=status)
     do n=1, LIS_rc%nnest
-      call ESMF_ConfigGetAttribute(LIS_config,NASASMAPsm_struc(n)%irrigated_anomaly_file, rc=status)
+      call ESMF_ConfigGetAttribute(LIS_config,NASASMAPsm_struc(n)%irr_anomaly_filename, rc=status)
       call LIS_verify(status, "SMAP(NASA) soil moisture irrigated anomaly file: not defined")
+    enddo
+
+    call ESMF_ConfigFindLabel(LIS_config, "SMAP(NASA) model climatology file:", rc=status)
+    do n=1, LIS_rc%nnest
+      call ESMF_ConfigGetAttribute(LIS_config,NASASMAPsm_struc(n)%model_clim_filename, rc=status)
+      call LIS_verify(status, "SMAP(NASA) soil moisture model climatology file: not defined")
     enddo
      ! End VH 20251122
     
@@ -507,11 +519,37 @@ contains
                 endif
              enddo
              
-!          open(100,file='ssdev.bin',form='unformatted')
-!          write(100) ssdev_grid
-!          close(100)
-!          stop
+          !          open(100,file='ssdev.bin',form='unformatted')
+          !          write(100) ssdev_grid
+          !          close(100)
+          !          stop
           endif
+
+          !VH 20251122: read irrigation anomaly and climatology data
+          else if (NASASMAPsm_struc(n)%cdf_read_opt.eq.2) then
+               
+          call LIS_getCDFattributes_irr(k, &
+               NASASMAPsm_struc(n)%irr_anomaly_filename, & 
+               NASASMAPsm_struc(n)%model_clim_filename, &
+               NASASMAPsm_struc(n)%ntimes_anom, &
+               NASASMAPsm_struc(n)%ntimes_clim)
+
+          ! Allocate obs_anomaly and model_clim arrays before reading
+          if (.not. allocated(NASASMAPsm_struc(n)%obs_anomaly)) then
+               allocate(NASASMAPsm_struc(n)%obs_anomaly(LIS_rc%obs_ngrid(k), NASASMAPsm_struc(n)%ntimes_anom))
+          endif
+
+          if (.not. allocated(NASASMAPsm_struc(n)%model_clim)) then
+               allocate(NASASMAPsm_struc(n)%model_clim(LIS_rc%obs_ngrid(k), NASASMAPsm_struc(n)%ntimes_clim))
+          endif
+
+          ! Call your combined read subroutine for irrigation anomaly and climatology data
+          call read_IrrAnomalyAndClimData(n, k, &
+               NASASMAPsm_struc(n)%ntimes_anom, NASASMAPsm_struc(n)%ntimes_clim, &
+               LIS_rc%obs_ngrid(k), &
+               NASASMAPsm_struc(n)%irr_anomaly_filename, "Irr_Anomaly", NASASMAPsm_struc(n)%obs_anomaly, &
+               NASASMAPsm_struc(n)%model_clim_filename, "Model_Clim", NASASMAPsm_struc(n)%model_clim)
+          !VH 20251122: end
          endif     
 #if 0           
           allocate(obserr(LIS_rc%obs_gnc(k),LIS_rc%obs_gnr(k)))
