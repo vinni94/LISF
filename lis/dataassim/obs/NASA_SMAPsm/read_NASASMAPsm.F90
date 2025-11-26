@@ -662,6 +662,8 @@ subroutine read_NASASMAPsm(n, k, OBS_State, OBS_Pert_State)
              k,                                   &
              NASASMAPsm_struc(n)%obs_anomaly,         &
              NASASMAPsm_struc(n)%model_clim,        &
+             NASASMAPsm_struc(n)%ntimes_anom,       & 
+             NASASMAPsm_struc(n)%ntimes_clim,    &
              sm_current)
 
    endif

@@ -94,6 +94,12 @@ module LIS_dataAssimMod
   public :: read_CDFtransferdata_all  
   public :: read_Precip_climo
   public :: read_Precip_climo_maxval
+  !VH 20251125
+  public :: read_IrrAnomalyAndClimData
+  public :: LIS_getCDFattributes_irr
+  public :: read_SingleNetCDFVariable
+  public :: LIS_rescale_with_irr_anomaly
+  !VH 20251125 end
 !EOP 
   public :: LIS_DA_struc
 
@@ -1011,14 +1017,16 @@ contains
        k, &
        obs_anomaly, &
        model_clim, &
+       ntimes_anom, &
+       ntimes_clim, &
        obs_value)
 
     implicit none
 
     ! Arguments
-    integer :: n, k
-    real :: obs_anomaly(LIS_rc%obs_ngrid(k), :)
-    real :: model_clim(LIS_rc%obs_ngrid(k), :)
+    integer :: n, k, ntimes_anom, ntimes_clim
+    real :: obs_anomaly(LIS_rc%obs_ngrid(k), ntimes_anom)
+    real :: model_clim(LIS_rc%obs_ngrid(k), ntimes_clim)
     real :: obs_value(LIS_rc%obs_lnc(k), LIS_rc%obs_lnr(k))
 
     ! Locals
@@ -1026,8 +1034,9 @@ contains
     integer :: col, row
     real :: obs_tmp
 
+    TRACE_ENTER("DA_rescaleIrrAno")
     ! Get current climatology time index kk corresponding to model step k
-    kk = LIS_rc%da
+    kk = LIS_rc%doy
 
     ! Loop over observation grid points
     do t = 1, LIS_rc%obs_ngrid(k)
@@ -1044,7 +1053,7 @@ contains
             obs_value(col,row) = LIS_rc%udef
         endif
     enddo
-
+    TRACE_EXIT("DA_rescaleIrrAno")
 end subroutine LIS_rescale_with_irr_anomaly
 
 !------------------------------------------------------------------VH20251122
@@ -1234,7 +1243,7 @@ subroutine LIS_getCDFattributes_irr(k, irr_filename, clim_filename, ntimes_anom,
     integer :: ngrid_clim
 
     integer :: nid, dimid, ierr
-
+    TRACE_ENTER("DA_getCDFatt_irr")
     ! Read irrigation anomaly file attributes
 #if(defined USE_NETCDF3 || defined USE_NETCDF4)
     call LIS_verify(nf90_open(trim(irr_filename), NF90_NOWRITE, nid), &
@@ -1260,7 +1269,7 @@ subroutine LIS_getCDFattributes_irr(k, irr_filename, clim_filename, ntimes_anom,
 
     call LIS_verify(nf90_close(nid), 'Failed to close model climatology file')
 #endif
-
+TRACE_EXIT("DA_getCDFatt_irr")
 end subroutine LIS_getCDFattributes_irr
 
 !VH20251124
@@ -1822,14 +1831,16 @@ end subroutine LIS_getCDFattributes_irr
     character(len=*), intent(in) :: clim_varname     ! climatology variable name
     real, intent(out) :: model_clim(ngrid, ntimes_clim)   ! output climatology data
 
+    TRACE_ENTER("read_IrrAnomalyAndClimData")
 !     integer :: ierr
 
     ! Read irrigation anomaly data
     call read_SingleNetCDFVariable(n, k, ntimes_anom, ngrid, anomaly_filename, anomaly_varname, obs_anomaly)
-     write(LIS_logunit,*) '[INFO] Successfully read anomaly values from the anomaly file ',trim(anomaly_filename)
+    write(LIS_logunit,*) '[INFO] Successfully read anomaly values from the anomaly file ',trim(anomaly_filename)
     ! Read model climatology data
     call read_SingleNetCDFVariable(n, k, ntimes_clim, ngrid, clim_filename, clim_varname, model_clim)
     write(LIS_logunit,*) '[INFO] Successfully read model climatology from the climatology file ',trim(clim_filename)
+     TRACE_EXIT("read_IrrAnomalyAndClimData")
 
 end subroutine read_IrrAnomalyAndClimData
 
@@ -1842,50 +1853,49 @@ subroutine read_SingleNetCDFVariable(n, k, ntimes, ngrid, filename, varname, dat
     character(len=*), intent(in) :: filename, varname
     real, intent(out) :: data(ngrid, ntimes)
 
-    integer :: nid, varid, gId, ierr
+    integer :: nid, varid, gId
     integer :: ngrid_file, ntimes_file, j
     real, allocatable :: file_data(:,:)
+
+     TRACE_ENTER("read_SingleNetCDFVariable")
+
 #if(defined USE_NETCDF3 || defined USE_NETCDF4)
 
-    ierr = nf90_open(trim(filename), NF90_NOWRITE, nid)
-    if (ierr /= nf90_noerr) then
-        write(*,*) 'Error opening file: ', trim(filename)
-        stop
-    endif
+    call LIS_verify(nf90_open(trim(filename), NF90_NOWRITE, nid), &
+         'Error opening file: '//trim(filename))
 
-    call LIS_verify(nf90_inq_dimid(nid, 'ngrid', gId, ierr), &
+    call LIS_verify(nf90_inq_dimid(nid, 'ngrid', gId), &
          'Error nf90_inq_dimid: ngrid')
-    call LIS_verify(nf90_inquire_dimension(nid, gId, len=ngrid_file, ierr), &
-         'Error nf90_inquire_dimension:ngrid')
+    call LIS_verify(nf90_inquire_dimension(nid, gId, len=ngrid_file), &
+         'Error nf90_inquire_dimension: ngrid')
 
-    call LIS_verify(nf90_inq_dimid(nid, 'ntimes', gId, ierr), &
-         'Error nf90_inq_dimid: ntime')
-    call LIS_verify(nf90_inquire_dimension(nid, gId, len=ntimes_file, ierr), &
-         'Error nf90_inquire_dimension:ntime')
+    call LIS_verify(nf90_inq_dimid(nid, 'ntimes', gId), &
+         'Error nf90_inq_dimid: ntimes')
+    call LIS_verify(nf90_inquire_dimension(nid, gId, len=ntimes_file), &
+         'Error nf90_inquire_dimension: ntimes')
 
     allocate(file_data(ngrid_file, ntimes_file))
 
-    call LIS_verify(nf90_inq_varid(nid, trim(varname), varid, ierr), &
+    call LIS_verify(nf90_inq_varid(nid, trim(varname), varid), &
          'nf90_inq_varid failed for '//trim(varname))
 
-    call LIS_verify(nf90_get_var(nid, varid, file_data, ierr), &
+    call LIS_verify(nf90_get_var(nid, varid, file_data), &
          'nf90_get_var failed for '//trim(varname))
 
-    if (LIS_rc%obs_ngrid(k) > 0) then
-        do j = 1, ntimes
-            call LIS_convertObsVarToLocalSpace(n, k, file_data(:,j), data(:,j))
+    if (LIS_rc%obs_ngrid(k).gt.0) then
+        do j = 1, ntimes_file
+            call LIS_convertObsVarToLocalSpace(n, k, file_data(:, j), data(:, j))
         end do
-    endif
+    end if
 
     deallocate(file_data)
-    call nf90_close(nid, ierr)
+    call LIS_verify(nf90_close(nid), 'Error closing file')
 
 #endif
-
+    TRACE_EXIT("read_SingleNetCDFVariable")
 end subroutine read_SingleNetCDFVariable
 
-
-   !VH 2022.03.03-------------------------------------------------------
+!VH 2022.03.03-------------------------------------------------------
 
 !BOP
 ! !ROUTINE: read_CDFtransferdata_all   
@@ -1931,8 +1941,8 @@ end subroutine read_SingleNetCDFVariable
      real, allocatable        :: xrange_file(:,:,:,:)
      real, allocatable        :: cdf_file(:,:,:,:)
      integer                  :: nid
-
-     !TRACE_ENTER("DA_readCDF")
+     
+     ! TRACE_ENTER("DA_readCDF")
 #if(defined USE_NETCDF3 || defined USE_NETCDF4)
      write(LIS_logunit,*) '[INFO] Reading stratified geolocation independent reference CDF file ',trim(filename)
      call LIS_verify(nf90_open(path=trim(filename),mode=NF90_NOWRITE,&
