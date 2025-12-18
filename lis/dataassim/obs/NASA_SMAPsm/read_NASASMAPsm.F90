@@ -660,10 +660,9 @@ subroutine read_NASASMAPsm(n, k, OBS_State, OBS_Pert_State)
         call LIS_rescale_with_irr_anomaly(&
              n,                                   &
              k,                                   &
-             NASASMAPsm_struc(n)%obs_anomaly,         &
+             NASASMAPsm_struc(n)%nonirr_neighbor,         &
              NASASMAPsm_struc(n)%model_clim,        &
-             NASASMAPsm_struc(n)%ntimes_anom,       & 
-             NASASMAPsm_struc(n)%ntimes_clim,    &
+             NASASMAPsm_struc(n)%ntimes,        &
              sm_current)
 
    endif

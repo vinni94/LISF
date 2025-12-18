@@ -80,7 +80,7 @@ module NASASMAPsm_Mod
      !VH 20251122: irrigation anomaly file name
      character(len=LIS_CONST_PATH_LEN) :: irr_anomaly_filename
      character(len=LIS_CONST_PATH_LEN) :: model_clim_filename
-     real, allocatable :: obs_anomaly(:,:)
+     real, allocatable :: nonirr_neighbor(:,:)
      real, allocatable :: model_clim(:,:)
      integer :: ntimes_anom, ntimes_clim
      !VH 20251122: end
@@ -531,12 +531,12 @@ contains
           call LIS_getCDFattributes_irr(k, &
                NASASMAPsm_struc(n)%irr_anomaly_filename, & 
                NASASMAPsm_struc(n)%model_clim_filename, &
-               NASASMAPsm_struc(n)%ntimes_anom, &
-               NASASMAPsm_struc(n)%ntimes_clim)
+               NASASMAPsm_struc(n)%ntimes, &
+               ngrid)
 
           ! Allocate obs_anomaly and model_clim arrays before reading
-          if (.not. allocated(NASASMAPsm_struc(n)%obs_anomaly)) then
-               allocate(NASASMAPsm_struc(n)%obs_anomaly(LIS_rc%obs_ngrid(k), NASASMAPsm_struc(n)%ntimes_anom))
+          if (.not. allocated(NASASMAPsm_struc(n)%nonirr_neighbor)) then
+               allocate(NASASMAPsm_struc(n)%nonirr_neighbor(LIS_rc%obs_ngrid(k), NASASMAPsm_struc(n)%ntimes_anom))
           endif
 
           if (.not. allocated(NASASMAPsm_struc(n)%model_clim)) then
@@ -545,10 +545,10 @@ contains
 
           ! Call your combined read subroutine for irrigation anomaly and climatology data
           call read_IrrAnomalyAndClimData(n, k, &
-               NASASMAPsm_struc(n)%ntimes_anom, NASASMAPsm_struc(n)%ntimes_clim, &
+               NASASMAPsm_struc(n)%ntimes, &
                LIS_rc%obs_ngrid(k), &
-               NASASMAPsm_struc(n)%irr_anomaly_filename, "Irr_Anomaly", NASASMAPsm_struc(n)%obs_anomaly, &
-               NASASMAPsm_struc(n)%model_clim_filename, "Model_Clim", NASASMAPsm_struc(n)%model_clim)
+               NASASMAPsm_struc(n)%irr_anomaly_filename, "nonirr_neighbor", NASASMAPsm_struc(n)%nonirr_neighbor, &
+               NASASMAPsm_struc(n)%model_clim_filename, "SoilMoist_climatology", NASASMAPsm_struc(n)%model_clim)
           !VH 20251122: end
          endif     
 #if 0           
