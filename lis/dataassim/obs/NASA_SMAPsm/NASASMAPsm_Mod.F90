@@ -82,7 +82,6 @@ module NASASMAPsm_Mod
      character(len=LIS_CONST_PATH_LEN) :: model_clim_filename
      real, allocatable :: nonirr_neighbor(:,:)
      real, allocatable :: model_clim(:,:)
-     integer :: ntimes_anom, ntimes_clim
      !VH 20251122: end
   end type NASASMAPsm_dec
   
@@ -495,73 +494,48 @@ contains
                NASASMAPsm_struc(n)%obs_xrange,&
                NASASMAPsm_struc(n)%obs_cdf)      
           
-          if(NASASMAPsm_struc(n)%useSsdevScal.eq.1) then 
-             if(NASASMAPsm_struc(n)%ntimes.eq.1) then 
-                jj = 1
-             else
-                jj = LIS_rc%mo
-             endif
-             do t=1,LIS_rc%obs_ngrid(k)
-                if(NASASMAPsm_struc(n)%obs_sigma(t,jj).gt.0) then 
+               if(NASASMAPsm_struc(n)%useSsdevScal.eq.1) then 
+                    if(NASASMAPsm_struc(n)%ntimes.eq.1) then 
+                         jj = 1
+                    else
+                         jj = LIS_rc%mo
+                    endif
+                    do t=1,LIS_rc%obs_ngrid(k)
+                         if(NASASMAPsm_struc(n)%obs_sigma(t,jj).gt.0) then 
 
-                   print*, ssdev(t), NASASMAPsm_struc(n)%model_sigma(t,jj),&
-                        NASASMAPsm_struc(n)%obs_sigma(t,jj)
+                              print*, ssdev(t), NASASMAPsm_struc(n)%model_sigma(t,jj),&
+                                   NASASMAPsm_struc(n)%obs_sigma(t,jj)
 
 
-                   ssdev(t) = ssdev(t)*NASASMAPsm_struc(n)%model_sigma(t,jj)/&
-                        NASASMAPsm_struc(n)%obs_sigma(t,jj)
-                   !                c = LIS_domain(n)%grid(t)%col
-                   !                r = LIS_domain(n)%grid(t)%row
-                   !                ssdev_grid(c,r) = ssdev(t) 
-                   if(ssdev(t).lt.minssdev) then 
-                      ssdev(t) = minssdev
-                   endif
-                endif
-             enddo
-             
-          !          open(100,file='ssdev.bin',form='unformatted')
-          !          write(100) ssdev_grid
-          !          close(100)
-          !          stop
-          endif
-
-          !VH 20251122: read irrigation anomaly and climatology data
-          else if (NASASMAPsm_struc(n)%cdf_read_opt.eq.2) then
+                              ssdev(t) = ssdev(t)*NASASMAPsm_struc(n)%model_sigma(t,jj)/&
+                                   NASASMAPsm_struc(n)%obs_sigma(t,jj)
+                              !                c = LIS_domain(n)%grid(t)%col
+                              !                r = LIS_domain(n)%grid(t)%row
+                              !                ssdev_grid(c,r) = ssdev(t) 
+                              if(ssdev(t).lt.minssdev) then 
+                                   ssdev(t) = minssdev
+                              endif
+                         endif
+                    enddo
                
-          call LIS_getCDFattributes_irr(k, &
-               NASASMAPsm_struc(n)%irr_anomaly_filename, & 
-               NASASMAPsm_struc(n)%model_clim_filename, &
-               NASASMAPsm_struc(n)%ntimes, &
-               ngrid)
-
-          ! Allocate obs_anomaly and model_clim arrays before reading
-          if (.not. allocated(NASASMAPsm_struc(n)%nonirr_neighbor)) then
-               allocate(NASASMAPsm_struc(n)%nonirr_neighbor(LIS_rc%obs_ngrid(k), NASASMAPsm_struc(n)%ntimes_anom))
+               !          open(100,file='ssdev.bin',form='unformatted')
+               !          write(100) ssdev_grid
+               !          close(100)
+               !          stop
+               endif
           endif
 
-          if (.not. allocated(NASASMAPsm_struc(n)%model_clim)) then
-               allocate(NASASMAPsm_struc(n)%model_clim(LIS_rc%obs_ngrid(k), NASASMAPsm_struc(n)%ntimes_clim))
-          endif
-
-          ! Call your combined read subroutine for irrigation anomaly and climatology data
-          call read_IrrAnomalyAndClimData(n, k, &
-               NASASMAPsm_struc(n)%ntimes, &
-               LIS_rc%obs_ngrid(k), &
-               NASASMAPsm_struc(n)%irr_anomaly_filename, "nonirr_neighbor", NASASMAPsm_struc(n)%nonirr_neighbor, &
-               NASASMAPsm_struc(n)%model_clim_filename, "SoilMoist_climatology", NASASMAPsm_struc(n)%model_clim)
-          !VH 20251122: end
-         endif     
 #if 0           
           allocate(obserr(LIS_rc%obs_gnc(k),LIS_rc%obs_gnr(k)))
           obserr = -9999.0
 
           do r=1,LIS_rc%obs_lnr(k)
-             do c=1,LIS_rc%obs_lnc(k)
-                if(LIS_obs_domain(n,k)%gindex(c,r).ne.-1) then 
-                   obserr(c,r)  =  ssdev(LIS_obs_domain(n,k)%gindex(c,r)) 
-                   
-                endif
-             enddo
+          do c=1,LIS_rc%obs_lnc(k)
+               if(LIS_obs_domain(n,k)%gindex(c,r).ne.-1) then 
+               obserr(c,r)  =  ssdev(LIS_obs_domain(n,k)%gindex(c,r)) 
+               
+               endif
+          enddo
           enddo
           print*, 'SMAP ',LIS_rc%obs_lnc(k),LIS_rc%obs_lnr(k)
           open(100,file='smap_obs_err.bin',form='unformatted')
@@ -587,14 +561,14 @@ contains
                LIS_nse_halo_ind(n,LIS_localPet+1))
 
           do r=1,LIS_rc%obs_lnr(k)
-             do c=1,LIS_rc%obs_lnc(k)
-                if(LIS_domain(n)%gindex(c,r).ne.-1) then 
-                   if(lobserr(c,r).gt.0.001) then 
-                      ssdev(LIS_domain(n)%gindex(c,r))  = &
-                           ssdev(LIS_domain(n)%gindex(c,r)) *2
-                   endif                    
-                endif
-             enddo
+          do c=1,LIS_rc%obs_lnc(k)
+               if(LIS_domain(n)%gindex(c,r).ne.-1) then 
+               if(lobserr(c,r).gt.0.001) then 
+                    ssdev(LIS_domain(n)%gindex(c,r))  = &
+                         ssdev(LIS_domain(n)%gindex(c,r)) *2
+               endif                    
+               endif
+          enddo
           enddo
 
 !          do r=1,LIS_rc%obs_lnr(k)
@@ -613,7 +587,45 @@ contains
           deallocate(lobserr)
 
 #endif
-       endif
+
+     else if (LIS_rc%dascaloption(k).eq."Neighbor Anomaly Scaling") then
+          !VH 20251122: read irrigation anomaly and climatology data
+          if (NASASMAPsm_struc(n)%cdf_read_opt.eq.2) then
+               write(LIS_logunit,*) &
+         '[INFO] Entering irrigation anomaly and climatology data attribute read section'
+          endif
+          call LIS_getCDFattributes_irr(k, &
+               NASASMAPsm_struc(n)%irr_anomaly_filename, & 
+               NASASMAPsm_struc(n)%model_clim_filename, &
+               NASASMAPsm_struc(n)%ntimes, &
+               ngrid)
+          
+          write(LIS_logunit,*) &
+         '[INFO] Successfully obtained irrigation anomaly and climatology data attributes'
+
+          ! Allocate obs_anomaly and model_clim arrays before reading
+          if (.not. allocated(NASASMAPsm_struc(n)%nonirr_neighbor)) then
+               allocate(NASASMAPsm_struc(n)%nonirr_neighbor(LIS_rc%obs_ngrid(k), NASASMAPsm_struc(n)%ntimes))
+          endif
+
+          if (.not. allocated(NASASMAPsm_struc(n)%model_clim)) then
+               allocate(NASASMAPsm_struc(n)%model_clim(LIS_rc%obs_ngrid(k), NASASMAPsm_struc(n)%ntimes))
+          endif
+
+          write(LIS_logunit,*) &
+         '[INFO] Now reading the irrigation anomaly and climatology data files'
+          ! Call your combined read subroutine for irrigation anomaly and climatology data
+          call read_IrrAnomalyAndClimData(n, k, &
+               NASASMAPsm_struc(n)%ntimes, &
+               LIS_rc%obs_ngrid(k), &
+               NASASMAPsm_struc(n)%irr_anomaly_filename, "nonirr_neighbor", NASASMAPsm_struc(n)%nonirr_neighbor, &
+               NASASMAPsm_struc(n)%model_clim_filename, "SoilMoist_climatology", NASASMAPsm_struc(n)%model_clim)
+          !VH 20251122: end
+           write(LIS_logunit,*) &
+         '[INFO] Succesfully read irrigation anomaly and climatology data files'  
+
+     endif
+     
        if(LIS_rc%obs_ngrid(k).gt.0) then 
           call ESMF_AttributeSet(pertField(n),"Standard Deviation",&
                ssdev,itemCount=LIS_rc%obs_ngrid(k),rc=status)

@@ -1038,16 +1038,45 @@ contains
     ! Get current climatology time index kk corresponding to model step k
     kk = LIS_rc%doy
 
+    write(LIS_logunit,*) &
+     '[DEBUG] DA_rescaleIrrAno: kk(doy)=', kk, ' ntimes=', ntimes
+
     ! Loop over observation grid points
     do t = 1, LIS_rc%obs_ngrid(k)
         col = LIS_obs_domain(n,k)%col(t)
         row = LIS_obs_domain(n,k)%row(t)
+        
+        if ( t .le. 50 ) then
+        write(LIS_logunit,*) &
+          '[DEBUG] Original SMAP observation value here for grid point: ', t, ' is : ', obs_value(col,row)
+        endif
 
         if (obs_value(col,row) .ne. -9999.0) then
-          
+          if (t .le. 50) then
+          write(LIS_logunit,*) &
+          '[DEBUG] non_irr_neighbor_clim value is: ', non_irr_neighbor(t,kk)
+          endif
+
+          if (non_irr_neighbor(t,kk) .eq. -9999.0) then
+               write(LIS_logunit,*) &
+          '[DEBUG] Encountered undefined non-irrigated neighbor climatology value, setting obs to undefined.'
+             obs_value(col,row) = LIS_rc%udef
+             cycle
+          endif
           ! Calculate anomaly based on non-irrigated neighbor
           obs_anomaly = obs_value(col,row) - non_irr_neighbor(t,kk)
+
+          if (t .le. 50) then
+          write(LIS_logunit,*) &
+          '[DEBUG] Calculated obs_anomaly (obs_value - non_irr_neighbor_value)is : ', obs_anomaly
+          endif
+
           obs_tmp = model_clim(t,kk) + obs_anomaly  ! Apply anomaly adjustment
+
+          if (t .le. 50) then
+          write(LIS_logunit,*) &
+          '[DEBUG] Bias corrected smap observation for this step computed : ', obs_tmp
+          endif
 
           if (obs_tmp < 0.01) then 
                obs_tmp = 0.01  ! Minimum threshold

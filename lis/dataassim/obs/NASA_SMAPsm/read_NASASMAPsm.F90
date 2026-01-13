@@ -656,7 +656,9 @@ subroutine read_NASASMAPsm(n, k, OBS_State, OBS_Pert_State)
              NASASMAPsm_struc(n)%obs_mu,    &
              NASASMAPsm_struc(n)%model_mu,       &
              sm_current)
-   elseif(LIS_rc%dascaloption(k).eq."IRR Anomaly scaling".and.fnd.ne.0) then    !VH20251124
+   elseif(LIS_rc%dascaloption(k).eq."Neighbor Anomaly Scaling".and.fnd.ne.0) then    !VH20251124
+      write(LIS_logunit,*) &
+         '[INFO] Correcting the SMAP soil moisture observations using Neighbor Anomaly scaling method.'
         call LIS_rescale_with_irr_anomaly(&
              n,                                   &
              k,                                   &
@@ -664,7 +666,8 @@ subroutine read_NASASMAPsm(n, k, OBS_State, OBS_Pert_State)
              NASASMAPsm_struc(n)%model_clim,        &
              NASASMAPsm_struc(n)%ntimes,        &
              sm_current)
-
+      write(LIS_logunit,*) &
+         '[INFO] Bias Correction of SMAP soil moisture observations completed.'
    endif
 
    obsl = LIS_rc%udef
