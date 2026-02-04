@@ -4872,6 +4872,32 @@ contains
             model_patch=.true.)
     endif
 
+    ! VH 06/2024 added additional LSM MOCs for Bare ground 2m temperature and humidity
+    Call ESMF_ConfigFindLabel(modelSpecConfig, "BareT2m:", rc = rc)
+    Call get_moc_attributes(modelSpecConfig, LIS_histData(n)%head_lsm_list, &
+         "BareT2m", &
+         "2-m_air_temperature_over_bareground_part",  &
+         "2-m air temperature over bareground part",rc)
+    if ( rc == 1 ) then
+        call register_dataEntry(LIS_MOC_LSM_COUNT, LIS_MOC_BARE2MT, &
+            LIS_histData(n)%head_lsm_list,&
+            n, 1, ntiles,(/"K"/), 1, (/"-"/),1,1,1,&
+            model_patch=.true.)
+    endif
+
+    Call ESMF_ConfigFindLabel(modelSpecConfig, "QairT2mBare:", rc = rc)
+    Call get_moc_attributes(modelSpecConfig, LIS_histData(n)%head_lsm_list, &
+         "QairT2mBare", &
+         "2-m_specific_humidity_over_bareground_part",  &
+         "2-m specific humidity over bareground part",rc)
+    if ( rc == 1 ) then
+        call register_dataEntry(LIS_MOC_LSM_COUNT, LIS_MOC_BARE2MQ2, &
+            LIS_histData(n)%head_lsm_list,&
+            n, 1, ntiles,(/"kg/kg"/), 1, (/"-"/),1,1,1,&
+            model_patch=.true.)
+    endif
+    ! End VH 06/2024
+
     Call ESMF_ConfigFindLabel(modelSpecConfig, "QairT2m:", rc = rc)
     Call get_moc_attributes(modelSpecConfig, LIS_histData(n)%head_lsm_list, &
          "QairT2m", &
