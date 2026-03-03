@@ -766,7 +766,7 @@ contains
         do n=1,LIS_rc%nnest
 
             if(LIS_rc%dascaloption(k).ne."none") then
-
+                write(LIS_logunit,*) "[INFO] Selected no scaling OR bias correction of data "
                 if(LIS_rc%dascaloption(k).eq."CDF matching"&
                      .or.LIS_rc%dascaloption(k).eq."unsafe CDF matching"&
                      .or.LIS_rc%dascaloption(k).eq."Normal deviate scaling") then
@@ -1383,12 +1383,18 @@ contains
         integer                 :: obsid, flagid
         integer                 :: ios
         integer                 :: numvalidobs
+        real                    :: obs_in_min, obs_in_max, obs_ip_min, obs_ip_max
+        integer                 :: obs_in_count, obs_ip_count
+        ! Read and apply CGLS QFLAG (before nf90_close!)
+        logical*1               :: qflag_b
+        integer                 :: qflag_id
+        integer(kind=2)         :: qflag(reader_struc(n)%nc,reader_struc(n)%nr)  ! Add to declarations
 
 #if !(defined USE_NETCDF3 || defined USE_NETCDF4)
         write(LIS_logunit,*) "[ERR] read_CustomNetCDF requires NETCDF"
         call LIS_endrun
 #else
-
+        qflag_b = .false.
         if (reader_struc(n)%obs_pert_option.eq.2) then
             allocate(observation_unc(reader_struc(n)%nc,reader_struc(n)%nr))
             allocate(obs_unc_in(reader_struc(n)%nc*reader_struc(n)%nr))
@@ -1443,6 +1449,13 @@ contains
              start=(/lon_offset,lat_offset/), &
              count=(/reader_struc(n)%nc,reader_struc(n)%nr/))
         call LIS_verify(ios, 'Error nf90_get_var: '//reader_struc(n)%nc_varname)
+        
+        ! Apply CGLS LAI scale factor (1/30 per documentation) - BEFORE QC
+        observation = observation / 30.0
+        write(LIS_logunit,*) '[INFO] Applied CGLS LAI scale_factor=1/30'
+
+        ! CGLS LAI: DN=255 is missing value, becomes 8.5 after scaling
+        where(observation > 7.0) observation = LIS_rc%udef
 
         if (reader_struc(n)%obs_pert_option.eq.2) then
             ! read uncertainty variable
@@ -1454,9 +1467,24 @@ contains
             call LIS_verify(ios, 'Error nf90_get_var: '//reader_struc(n)%obs_unc_varname)
         endif
 
+         ! Quality Flag check section
+        ios = nf90_inq_varid(nid, "QFLAG", qflag_id)
+        if (ios == NF90_NOERR) then
+            ios = nf90_get_var(nid, qflag_id, qflag, &
+                start=(/lon_offset,lat_offset/), &
+                count=(/reader_struc(n)%nc,reader_struc(n)%nr/))
+            call LIS_verify(ios, 'Error reading QFLAG')
+            ! Filter missing values first
+            where(qflag == 65535) observation = LIS_rc%udef  ! Or handle as udef
+            write(LIS_logunit,*) '[INFO] Applied CGLS QFLAG filtering'
+            qflag_b = .true.
+        else
+            
+            write(LIS_logunit,*) '[WARN] QFLAG not found'
+        endif  ! 
+
         ios = nf90_close(ncid=nid)
         call LIS_verify(ios,'Error closing file '//trim(fname))
-
 
         ! the data is already read into 'observation', but we have to replace
         ! NaNs/invalid values with LIS_rc%udef
@@ -1486,6 +1514,16 @@ contains
                          .or.(observation(c, r) > reader_struc(n)%qcmax_value)) then
                         observation(c, r) = LIS_rc%udef
                     endif
+
+                    if (qflag_b) then
+                    if (iand(qflag(c,r), 1) == 1) then           ! Bit 1: Water
+                        observation(c,r) = LIS_rc%udef
+                    elseif (iand(qflag(c,r), 32) == 32 .or. &    ! Bit 5: EBF missing
+                            iand(qflag(c,r), 192) == 192) then   ! Bits 6:7: nonEBF missing
+                        observation(c,r) = LIS_rc%udef
+                    endif
+                    endif
+
                     ! fill obs_in and obs_b_in, which are required further on
                     obs_in(c+(r-1)*reader_struc(n)%nc) = observation(c,r)
                     obs_b_in(c+(r-1)*reader_struc(n)%nc) = observation(c, r).ne.LIS_rc%udef
@@ -1493,6 +1531,13 @@ contains
             end do
 
         endif !obs_pert_option.eq.2
+
+        ! Print obs_in min/max BEFORE interpolation (native grid)
+        obs_in_min = minval(obs_in, mask=(obs_b_in))
+        obs_in_max = maxval(obs_in, mask=(obs_b_in))
+        obs_in_count = count(obs_b_in)
+        write(LIS_logunit,*) '[DEBUG] obs_in (native, pre-interp): min=', obs_in_min, &
+                            ' max=', obs_in_max, ' valid_count=', obs_in_count
 
         call CustomNcReader_interp_data(reader_struc, n, k, obs_in, obs_b_in, obs_ip, obs_b_ip, fname)
         if (reader_struc(n)%obs_pert_option.eq.2) then
@@ -1506,6 +1551,12 @@ contains
             deallocate(obs_unc_b_ip)
         endif
 
+        ! Print obs_ip min/max AFTER interpolation (LIS grid)  
+        obs_ip_min = minval(obs_ip, mask=(obs_b_ip))
+        obs_ip_max = maxval(obs_ip, mask=(obs_b_ip))
+        obs_ip_count = count(obs_b_ip)
+        write(LIS_logunit,*) '[DEBUG] obs_ip (LIS, post-interp): min=', obs_ip_min, &
+                            ' max=', obs_ip_max, ' valid_count=', obs_ip_count
 
         write(LIS_logunit,*) '[INFO] Finished reading ',trim(fname)
 #endif

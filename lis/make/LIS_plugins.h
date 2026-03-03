@@ -85,6 +85,7 @@ See the LIS Users' Guide for more informaion.
 #define RTMS_CRTM2EM
 #define RTMS_CMEM
 #define RTMS_TAU_OMEGA
+#define RTMS_VODOO
 #define APP_GLS
 #define APP_TRIGRS
 #define ROUTE_NLDAS_ROUTER
@@ -124,11 +125,18 @@ See the LIS Users' Guide for more informaion.
 #undef DA_OBS_SMOPS_SMAPSM
 #define DA_OBS_SMOS_NESDIS
 #define DA_OBS_NASA_SMAPSM
+#define DA_OBS_NASA_SMAPSMLAI
 #define DA_OBS_SMOS_NRT_NN
 #define DA_OBS_SMAP_E_OPL_SM
 #define DA_OBS_NASA_SMAPVOD
 #define DA_OBS_ASO_SWE
 #define DA_OBS_MCD15A2H_LAI
+#define DA_OBS_CGLS_LAI
+#define DA_OBS_CGLS_LAI_SM
+#define DA_OBS_CUSTOM_LAI
+#define DA_OBS_CUSTOM_LAI_SM
+#define DA_OBS_CUSTOM_SSM
+#define DA_OBS_CUSTOM_VOD
 #define DA_OBS_GLASS_LAI
 #define DA_OBS_VIIRS_GVF
 #define DA_OBS_CDFS_GVF
