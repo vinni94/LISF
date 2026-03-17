@@ -560,25 +560,32 @@ contains
         !------------------------------------------------------------
         ! Read grid information and resample
         !------------------------------------------------------------
-        do n=1,LIS_rc%nnest
-
+        do n=1,LIS_rc%nnest            ! The Custom reader is designed for regular grids.
+            ! When the observation map projection is lat/lon, the input
+            ! grid descriptor is built from the configured lat/lon bounds.
+            ! For other projections (e.g., lambert) we reuse the observation
+            ! grid descriptor that was created when the observation domain was initialized.
             if(LIS_rc%lis_obs_map_proj(k).ne."latlon") then
-                write(LIS_logunit,*)&
-                     '[ERROR] The Custom reader module only works with latlon projection'
-                call LIS_endrun
+                write(LIS_logunit,*) '[INFO] Using observation grid descriptor for ', &
+                     trim(LIS_rc%lis_obs_map_proj(k)), ' projection'
             endif
 
-            reader_struc(n)%gridDesci(1) = 0  ! regular lat-lon grid
-            reader_struc(n)%gridDesci(2) = reader_struc(n)%nc
-            reader_struc(n)%gridDesci(3) = reader_struc(n)%nr
-            reader_struc(n)%gridDesci(4) = reader_struc(n)%latmax
-            reader_struc(n)%gridDesci(5) = reader_struc(n)%lonmin
-            reader_struc(n)%gridDesci(6) = 128
-            reader_struc(n)%gridDesci(7) = reader_struc(n)%latmin
-            reader_struc(n)%gridDesci(8) = reader_struc(n)%lonmax
-            reader_struc(n)%gridDesci(9) = reader_struc(n)%dlat
-            reader_struc(n)%gridDesci(10) = reader_struc(n)%dlon
-            reader_struc(n)%gridDesci(20) = 64
+            if(LIS_rc%lis_obs_map_proj(k).eq."latlon") then
+                reader_struc(n)%gridDesci(1) = 0  ! regular lat-lon grid
+                reader_struc(n)%gridDesci(2) = reader_struc(n)%nc
+                reader_struc(n)%gridDesci(3) = reader_struc(n)%nr
+                reader_struc(n)%gridDesci(4) = reader_struc(n)%latmax
+                reader_struc(n)%gridDesci(5) = reader_struc(n)%lonmin
+                reader_struc(n)%gridDesci(6) = 128
+                reader_struc(n)%gridDesci(7) = reader_struc(n)%latmin
+                reader_struc(n)%gridDesci(8) = reader_struc(n)%lonmax
+                reader_struc(n)%gridDesci(9) = reader_struc(n)%dlat
+                reader_struc(n)%gridDesci(10) = reader_struc(n)%dlon
+                reader_struc(n)%gridDesci(20) = 64
+            else
+                ! Use the observation grid descriptor for non-lat/lon projections
+                reader_struc(n)%gridDesci(:) = LIS_rc%obs_gridDesc(k,:)
+            endif
 
             reader_struc(n)%mi = reader_struc(n)%nc*reader_struc(n)%nr
 
