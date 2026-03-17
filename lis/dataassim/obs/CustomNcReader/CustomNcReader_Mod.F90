@@ -317,7 +317,6 @@ contains
             else
                 call ESMF_ConfigGetAttribute(LIS_config,reader_struc(n)%latmax,&
                      rc=status)
-            endif
 
             call ESMF_ConfigFindLabel(LIS_config,"Custom "//trim(varname)//" lat min:",&
                  rc=status)
@@ -326,7 +325,6 @@ contains
             else
                 call ESMF_ConfigGetAttribute(LIS_config,reader_struc(n)%latmin,&
                      rc=status)
-            endif
             call ESMF_ConfigFindLabel(LIS_config,"Custom "//trim(varname)//" lon max:",&
                  rc=status)
             if (status .ne. 0) then
@@ -334,7 +332,6 @@ contains
             else
                 call ESMF_ConfigGetAttribute(LIS_config,reader_struc(n)%lonmax,&
                      rc=status)
-            endif
             call ESMF_ConfigFindLabel(LIS_config,"Custom "//trim(varname)//" lon min:",&
                  rc=status)
             if (status .ne. 0) then
@@ -342,7 +339,6 @@ contains
             else
                 call ESMF_ConfigGetAttribute(LIS_config,reader_struc(n)%lonmin,&
                      rc=status)
-            endif
 
             reader_struc(n)%dlat = reader_struc(n)%spatialres
             reader_struc(n)%dlon = reader_struc(n)%spatialres
@@ -364,7 +360,6 @@ contains
             else
                 call ESMF_ConfigGetAttribute(LIS_config,reader_struc(n)%lt_assim,&
                      rc=status)
-            endif
         enddo
 
         call ESMF_ConfigFindLabel(LIS_config,&
@@ -378,7 +373,6 @@ contains
                      "Custom "//trim(varname)//" assimilation time (hour): not defined")
             else
                 reader_struc(n)%da_hr = 0.0
-            endif
         enddo
 
         call ESMF_ConfigFindLabel(LIS_config,&
@@ -392,7 +386,6 @@ contains
                      "Custom "//trim(varname)//" assimilation time (minute): not defined")
             else
                 reader_struc(n)%da_mn = 0.0
-            endif
         enddo
 
         do n=1,LIS_rc%nnest
@@ -414,8 +407,6 @@ contains
                          "[ERROR] Custom "//trim(varname)//" observation perturbation option"&
                          //" must be one of 'scalar', 'spatial', or 'full'"
                     call LIS_endrun
-                endif
-            endif
         enddo
 
 
@@ -427,7 +418,6 @@ contains
                      rc=status)
                 call LIS_verify(status, &
                      "Custom "//trim(varname)//" mean observation uncertainty file: not defined")
-            endif
         enddo
 
         call ESMF_ConfigFindLabel(LIS_config,&
@@ -439,7 +429,6 @@ contains
                      rc=status)
                 call LIS_verify(status, &
                      "Custom "//trim(varname)//" mean observation uncertainty variable name: not defined")
-            endif
         enddo
 
         call ESMF_ConfigFindLabel(LIS_config,&
@@ -451,7 +440,6 @@ contains
                      rc=status)
                 call LIS_verify(status, &
                      "Custom "//trim(varname)//" observation uncertainty variable name: not defined")
-            endif
         enddo
 
         !------------------------------------------------------------
@@ -467,7 +455,6 @@ contains
                      rc=status)
                 call LIS_verify(status, &
                      "Custom "//trim(varname)//" use scaled standard deviation model: not defined")
-            endif
         enddo
 
         call ESMF_ConfigFindLabel(LIS_config,&
@@ -478,7 +465,6 @@ contains
                 call ESMF_ConfigGetAttribute(LIS_config,modelscalingfile(n),rc=status)
                 call LIS_verify(status, &
                      "Custom "//trim(varname)//" model scaling file: not defined")
-            endif
         enddo
 
         call ESMF_ConfigFindLabel(LIS_config,&
@@ -489,7 +475,6 @@ contains
                 call ESMF_ConfigGetAttribute(LIS_config,obsscalingfile(n),rc=status)
                 call LIS_verify(status,&
                      "Custom "//trim(varname)//" observation scaling file: not defined")
-            endif
         enddo
 
         call ESMF_ConfigFindLabel(LIS_config,&
@@ -500,7 +485,6 @@ contains
                 call ESMF_ConfigGetAttribute(LIS_config,modelscalingvarname(n),rc=status)
                 call LIS_verify(status, &
                      "Custom "//trim(varname)//" varname in model scaling file: not defined")
-            endif
         enddo
 
         call ESMF_ConfigFindLabel(LIS_config,&
@@ -511,7 +495,6 @@ contains
                 call ESMF_ConfigGetAttribute(LIS_config,obsscalingvarname(n),rc=status)
                 call LIS_verify(status, &
                      "Custom "//trim(varname)//" varname in observation scaling file: not defined")
-            endif
         enddo
 
         call ESMF_ConfigFindLabel(LIS_config, &
@@ -523,7 +506,6 @@ contains
                 call ESMF_ConfigGetAttribute(LIS_config,reader_struc(n)%nbins, rc=status)
                 call LIS_verify(status, &
                      "Custom "//trim(varname)//" number of bins in the CDF: not defined")
-            endif
         enddo
 
 
@@ -551,7 +533,6 @@ contains
             allocate(reader_struc(n)%datime(LIS_rc%obs_lnc(k),LIS_rc%obs_lnr(k)))
             if (reader_struc(n)%obs_pert_option.eq.2) then
                 allocate(reader_struc(n)%daobs_unc(LIS_rc%obs_lnc(k),LIS_rc%obs_lnr(k)))
-            endif
         enddo
 
         write(LIS_logunit,*)&
@@ -559,33 +540,24 @@ contains
 
         !------------------------------------------------------------
         ! Read grid information and resample
-        !------------------------------------------------------------
-        do n=1,LIS_rc%nnest            ! The Custom reader is designed for regular grids.
-            ! When the observation map projection is lat/lon, the input
-            ! grid descriptor is built from the configured lat/lon bounds.
-            ! For other projections (e.g., lambert) we reuse the observation
-            ! grid descriptor that was created when the observation domain was initialized.
+        do n=1,LIS_rc%nnest            ! The Custom reader is designed for regular lat-lon grids.
+            ! The input grid descriptor is always built from the configured lat/lon bounds,
+            ! regardless of the LIS observation map projection.
             if(LIS_rc%lis_obs_map_proj(k).ne."latlon") then
-                write(LIS_logunit,*) '[INFO] Using observation grid descriptor for ', &
+                write(LIS_logunit,*) '[INFO] Regridding from lat-lon to ', &
                      trim(LIS_rc%lis_obs_map_proj(k)), ' projection'
-            endif
 
-            if(LIS_rc%lis_obs_map_proj(k).eq."latlon") then
-                reader_struc(n)%gridDesci(1) = 0  ! regular lat-lon grid
-                reader_struc(n)%gridDesci(2) = reader_struc(n)%nc
-                reader_struc(n)%gridDesci(3) = reader_struc(n)%nr
-                reader_struc(n)%gridDesci(4) = reader_struc(n)%latmax
-                reader_struc(n)%gridDesci(5) = reader_struc(n)%lonmin
-                reader_struc(n)%gridDesci(6) = 128
-                reader_struc(n)%gridDesci(7) = reader_struc(n)%latmin
-                reader_struc(n)%gridDesci(8) = reader_struc(n)%lonmax
-                reader_struc(n)%gridDesci(9) = reader_struc(n)%dlat
-                reader_struc(n)%gridDesci(10) = reader_struc(n)%dlon
-                reader_struc(n)%gridDesci(20) = 64
-            else
-                ! Use the observation grid descriptor for non-lat/lon projections
-                reader_struc(n)%gridDesci(:) = LIS_rc%obs_gridDesc(k,:)
-            endif
+            ! Input grid is always lat-lon
+            reader_struc(n)%gridDesci(1) = 0  ! regular lat-lon grid
+            reader_struc(n)%gridDesci(2) = reader_struc(n)%nc
+            reader_struc(n)%gridDesci(3) = reader_struc(n)%nr
+            reader_struc(n)%gridDesci(4) = reader_struc(n)%latmax
+            reader_struc(n)%gridDesci(5) = reader_struc(n)%lonmin
+            reader_struc(n)%gridDesci(6) = 128
+            reader_struc(n)%gridDesci(7) = reader_struc(n)%latmin
+            reader_struc(n)%gridDesci(8) = reader_struc(n)%lonmax
+            reader_struc(n)%gridDesci(9) = reader_struc(n)%dlat
+            reader_struc(n)%gridDesci(20) = 64
 
             reader_struc(n)%mi = reader_struc(n)%nc*reader_struc(n)%nr
 
@@ -631,7 +603,6 @@ contains
 
                 write(LIS_logunit,*)&
                      "[INFO] finished creating upscaling input for Custom "//trim(varname)//""
-            endif
 
         enddo
 
@@ -709,10 +680,8 @@ contains
                             reader_struc(n)%ssdev_inp_field(t) = obs_pert%ssdev(1) / ssdev(t)
                         else
                             reader_struc(n)%ssdev_inp_field(t) = LIS_rc%udef
-                        endif
                     end do
                     ssdev = reader_struc(n)%ssdev_inp_field
-                endif
 
                 pertField(n) = ESMF_FieldCreate(arrayspec=pertArrSpec,&
                      grid=LIS_obsEnsOnGrid(n,k),name="Observation"//vid(1)//vid(2),&
@@ -732,7 +701,6 @@ contains
                     call ESMF_AttributeSet(pertField(n),"Standard Deviation",&
                          ssdev,itemCount=LIS_rc%obs_ngrid(k),rc=status)
                     call LIS_verify(status)
-                endif
 
                 call ESMF_AttributeSet(pertField(n),"Std Normal Max",&
                      obs_pert%stdmax(1), rc=status)
@@ -758,7 +726,6 @@ contains
                 call ESMF_StateAdd(OBS_Pert_State(n),(/pertField(n)/),rc=status)
                 call LIS_verify(status)
 
-            endif
 
             deallocate(vname)
             deallocate(varmax)
@@ -894,9 +861,7 @@ contains
                         ! by the ratio of means instead of the ratio of sigmas.
                         reader_struc(n)%model_sigma = reader_struc(n)%model_mu
                         reader_struc(n)%obs_sigma = reader_struc(n)%obs_mu
-                    endif
 
-                endif
 
             endif ! dascaloption .ne. "none"
         enddo
@@ -1000,7 +965,6 @@ contains
             observations_unc = LIS_rc%udef
             obs_unc_current = LIS_rc%udef
             obs_unc_ngrid = LIS_rc%udef
-        endif
         obs_unscaled = LIS_rc%udef
         obs_current = LIS_rc%udef
 
@@ -1022,7 +986,6 @@ contains
                 call read_CustomNetCDF_data(reader_struc, n,k, fname,observations, observations_unc)
             else
                 write(LIS_logunit,*) '[WARN] Missing observation file: ',trim(fname)
-            endif
 
             ! set daobs and datime
             reader_struc(n)%daobs  = LIS_rc%udef
@@ -1045,9 +1008,6 @@ contains
                                     reader_struc(n)%datime(c, r) = gmtdatime
                                 else
                                     reader_struc(n)%datime(c, r) = 0
-                                endif
-                            endif
-                        endif
                     enddo
                 enddo
             else ! obs_pert_option != 2
@@ -1066,9 +1026,6 @@ contains
                                     reader_struc(n)%datime(c, r) = gmtdatime
                                 else
                                     reader_struc(n)%datime(c, r) = 0
-                                endif
-                            endif
-                        endif
                     enddo
                 enddo
             endif ! obs_pert_option == 2
@@ -1101,12 +1058,8 @@ contains
                             if(LIS_obs_domain(n,k)%gindex(c,r).ne.-1) then
                                 obs_unscaled(LIS_obs_domain(n,k)%gindex(c,r)) = &
                                      obs_current(c,r)
-                            endif
                             if(obs_current(c,r).ne.LIS_rc%udef) then
                                 fnd = 1
-                            endif
-                        endif
-                    endif
                 enddo
             enddo
         else !obs_pert_option.ne.2
@@ -1123,12 +1076,8 @@ contains
                             if(LIS_obs_domain(n,k)%gindex(c,r).ne.-1) then
                                 obs_unscaled(LIS_obs_domain(n,k)%gindex(c,r)) = &
                                      obs_current(c,r)
-                            endif
                             if(obs_current(c,r).ne.LIS_rc%udef) then
                                 fnd = 1
-                            endif
-                        endif
-                    endif
                 enddo
             enddo
         endif !obs_pert_option.eq.2
@@ -1198,7 +1147,6 @@ contains
                  reader_struc(n)%obs_sigma,  &
                  obs_current)
 
-        endif
 
         !-------------------------------------------------------------------------
         !  End transforming
@@ -1213,7 +1161,6 @@ contains
                     if(LIS_obs_domain(n,k)%gindex(c,r).ne.-1) then
                         obsl(LIS_obs_domain(n,k)%gindex(c,r)) = obs_current(c,r)
                         obs_unc_ngrid(LIS_obs_domain(n,k)%gindex(c,r)) = obs_unc_current(c,r)
-                    endif
                 enddo
             enddo
         else
@@ -1222,7 +1169,6 @@ contains
                 do c=1, LIS_rc%obs_lnc(k)
                     if(LIS_obs_domain(n,k)%gindex(c,r).ne.-1) then
                         obsl(LIS_obs_domain(n,k)%gindex(c,r)) = obs_current(c,r)
-                    endif
                 enddo
             enddo
         endif ! obs_pert_option.eq.2
@@ -1240,7 +1186,6 @@ contains
         call MPI_ALLGATHER(data_upd_flag_local,1, &
              MPI_LOGICAL, data_upd_flag(:),&
              1, MPI_LOGICAL, LIS_mpi_comm, status)
-#endif
         data_upd = .false.
         do p=1,LIS_npes
             data_upd = data_upd.or.data_upd_flag(p)
@@ -1254,7 +1199,6 @@ contains
                     assimflag(t) = 1
                 else
                     assimflag(t) = 0
-                endif
             enddo
 
             call ESMF_AttributeSet(OBS_State,"Data Update Status",&
@@ -1274,7 +1218,6 @@ contains
                      obs_unscaled, itemCount=LIS_rc%obs_ngrid(k), rc=status)
                 call LIS_verify(status, 'Error in setting Unscaled Obs attribute')
 
-            endif
 
             ! rescale perturbation standard deviations if rescaling of the
             ! data is performed, or if we use daily different perturbations
@@ -1296,9 +1239,7 @@ contains
                             ssdev(t) = reader_struc(n)%ssdev_inp_field(t) * obs_unc_ngrid(t)
                         else
                             ssdev(t) = LIS_rc%udef
-                        endif
                     end do
-                endif
 
                 if (LIS_rc%dascaloption(k).ne."none".and.reader_struc(n)%useSsdevScal.eq.1) then
                     timeidx = CustomNcReader_timeidx(reader_struc(n)%ntimes)
@@ -1306,25 +1247,20 @@ contains
                          reader_struc(n)%obs_sigma(:, timeidx),&
                          reader_struc(n)%model_sigma(:, timeidx),&
                          ssdev)
-                endif
 
                 if(LIS_rc%obs_ngrid(k).gt.0) then
                     call ESMF_AttributeSet(pertfield,"Standard Deviation",&
                          ssdev,itemCount=LIS_rc%obs_ngrid(k),rc=status)
                     call LIS_verify(status)
-                endif
-            endif
 
         else ! no data update
             call ESMF_AttributeSet(OBS_State,"Data Update Status",&
                  .false., rc=status)
             call LIS_verify(status)
-        endif
         if (reader_struc(n)%obs_pert_option.eq.2) then
             deallocate(observations_unc)
             deallocate(obs_unc_current)
             deallocate(obs_unc_ngrid)
-        endif
 
     end subroutine read_CustomNetCDF
 
@@ -1339,7 +1275,6 @@ contains
         ! !USES:
 #if(defined USE_NETCDF3 || defined USE_NETCDF4)
         use netcdf
-#endif
         use LIS_coreMod,  only : LIS_rc, LIS_domain
         use LIS_logMod
         use LIS_timeMgrMod
@@ -1408,7 +1343,6 @@ contains
             allocate(obs_unc_b_in(reader_struc(n)%nc*reader_struc(n)%nr))
             allocate(obs_unc_b_ip(LIS_rc%obs_lnc(k)*LIS_rc%obs_lnr(k)))
             obs_unc_b_in = .false.
-        endif
         obs_b_in = .false.
 
         lat_offset = 1  ! no offset
@@ -1436,7 +1370,6 @@ contains
             write(LIS_logunit,*) 'lon size on file: ',lonsize_file
             write(LIS_logunit,*) 'lon size expected: ',reader_struc(n)%nc
             call LIS_endrun
-        endif
 
         ! make sure that latitude axis is inverted
         ios = nf90_inq_varid(nid, "lat", lid)
@@ -1446,7 +1379,6 @@ contains
         if (lat(1) < lat(latsize_file)) then
             write(LIS_logunit,*) "[ERR] Reader expects inverted latitude coordinate"
             call LIS_endrun
-        endif
 
 
         ! read main variable
@@ -1472,7 +1404,6 @@ contains
                  start=(/lon_offset,lat_offset/), &
                  count=(/reader_struc(n)%nc,reader_struc(n)%nr/))
             call LIS_verify(ios, 'Error nf90_get_var: '//reader_struc(n)%obs_unc_varname)
-        endif
 
          ! Quality Flag check section
         ios = nf90_inq_varid(nid, "QFLAG", qflag_id)
@@ -1505,7 +1436,6 @@ contains
                          .or.(observation_unc(c, r) <= 0)) then
                         observation(c, r) = LIS_rc%udef
                         observation_unc(c, r) = LIS_rc%udef
-                    endif
                     ! fill obs_in and obs_b_in, which are required further on
                     obs_in(c+(r-1)*reader_struc(n)%nc) = observation(c,r)
                     obs_b_in(c+(r-1)*reader_struc(n)%nc) = observation(c, r).ne.LIS_rc%udef
@@ -1520,7 +1450,6 @@ contains
                          .or.(observation(c, r) < reader_struc(n)%qcmin_value) &
                          .or.(observation(c, r) > reader_struc(n)%qcmax_value)) then
                         observation(c, r) = LIS_rc%udef
-                    endif
 
                     if (qflag_b) then
                     if (iand(qflag(c,r), 1) == 1) then           ! Bit 1: Water
@@ -1528,8 +1457,6 @@ contains
                     elseif (iand(qflag(c,r), 32) == 32 .or. &    ! Bit 5: EBF missing
                             iand(qflag(c,r), 192) == 192) then   ! Bits 6:7: nonEBF missing
                         observation(c,r) = LIS_rc%udef
-                    endif
-                    endif
 
                     ! fill obs_in and obs_b_in, which are required further on
                     obs_in(c+(r-1)*reader_struc(n)%nc) = observation(c,r)
@@ -1549,14 +1476,12 @@ contains
         call CustomNcReader_interp_data(reader_struc, n, k, obs_in, obs_b_in, obs_ip, obs_b_ip, fname)
         if (reader_struc(n)%obs_pert_option.eq.2) then
             call CustomNcReader_interp_data(reader_struc, n, k, obs_unc_in, obs_unc_b_in, obs_unc_ip, obs_unc_b_ip, fname)
-        endif
 
         if (reader_struc(n)%obs_pert_option.eq.2) then
             deallocate(observation_unc)
             deallocate(obs_unc_in)
             deallocate(obs_unc_b_in)
             deallocate(obs_unc_b_ip)
-        endif
 
         ! Print obs_ip min/max AFTER interpolation (LIS grid)  
         obs_ip_min = minval(obs_ip, mask=(obs_b_ip))
@@ -1566,7 +1491,6 @@ contains
                             ' max=', obs_ip_max, ' valid_count=', obs_ip_count
 
         write(LIS_logunit,*) '[INFO] Finished reading ',trim(fname)
-#endif
     end subroutine read_CustomNetCDF_data
 
 
@@ -1614,7 +1538,6 @@ contains
                  LIS_rc%obs_lnc(k)*LIS_rc%obs_lnr(k), &
                  LIS_rc%udef, reader_struc(n)%n11,&
                  data_b_in,data_in, data_b_ip, data_ip)
-        endif
     end subroutine CustomNcReader_interp_data
 
 
@@ -1721,15 +1644,12 @@ contains
 
             call LIS_create_output_directory('DAOBS')
             open(ftn,file=trim(obsname), form='unformatted')
-         endif
 
          call LIS_writevar_gridded_obs(ftn,n,k,observations)
 
          if(LIS_masterproc) then
             call LIS_releaseUnitNumber(ftn)
-         endif
 
-      endif
 
     end subroutine write_CustomNetCDF
 
@@ -1870,16 +1790,13 @@ contains
                          + model_mu(grididx, timeidx)
                 else
                     obs_tmp = LIS_rc%udef
-                endif
 
                 if (obs_tmp < min_obs_value .or. obs_tmp > max_obs_value) then
                     obs_tmp = LIS_rc%udef
-                endif
 
                 obs_value(col, row) = obs_tmp
             else
                 obs_value(col,row) = LIS_rc%udef
-            endif
         enddo
     end subroutine CustomNcReader_rescale_with_seasonal_scaling
 
@@ -1893,7 +1810,6 @@ contains
 
 #if(defined USE_NETCDF3 || defined USE_NETCDF4)
         use netcdf
-#endif
         use LIS_coreMod, only: LIS_rc
         use LIS_logMod, only: LIS_logunit, LIS_verify, LIS_endrun
         use LIS_DAobservationsMod, only: LIS_convertObsVarToLocalSpace
@@ -1955,7 +1871,6 @@ contains
                  "with expected ngrid: ", ngrid_file,&
                  " instead of ",LIS_rc%obs_glbngrid_red(k)
             call LIS_endrun
-        endif
 
         ! dimension order is flipped compared to netCDF, because in Fortran the
         ! first dimension changes fastest
@@ -1980,7 +1895,6 @@ contains
                 call LIS_convertObsVarToLocalSpace(n,k,mu_file(:,j,1), mu(:,j))
                 call LIS_convertObsVarToLocalSpace(n,k,sigma_file(:,j,1), sigma(:,j))
             enddo
-        endif
 
         deallocate(mu_file)
         deallocate(sigma_file)
@@ -1990,7 +1904,6 @@ contains
         write(LIS_logunit,*)&
              "[INFO] Successfully read mean and seasonal scaling file ",&
              trim(filename)
-#endif
     end subroutine CustomNcReader_readSeasonalScalingData
 
     !BOP
@@ -2003,7 +1916,6 @@ contains
 
 #if(defined USE_NETCDF3 || defined USE_NETCDF4)
         use netcdf
-#endif
         use LIS_coreMod, only: LIS_rc
         use LIS_logMod, only: LIS_logunit, LIS_verify, LIS_endrun
         use LIS_DAobservationsMod, only: LIS_convertObsVarToLocalSpace
@@ -2055,7 +1967,6 @@ contains
                  "with expected ngrid: ", ngrid_file,&
                  " instead of ",LIS_rc%obs_glbngrid_red(k)
             call LIS_endrun
-        endif
 
         allocate(ssdev_file(ngrid_file))
 
@@ -2067,7 +1978,6 @@ contains
 
         if(LIS_rc%obs_ngrid(k).gt.0) then
             call LIS_convertObsVarToLocalSpace(n,k,ssdev_file(:), ssdev(:))
-        endif
 
         deallocate(ssdev_file)
 
@@ -2076,7 +1986,6 @@ contains
         write(LIS_logunit,*)&
              "[INFO] Successfully read ssdev file ",&
              trim(filename)
-#endif
     end subroutine CustomNcReader_readSsdevData
 
     subroutine CustomNcReader_updateSsdev(k, obs_sigma, model_sigma, ssdev)
@@ -2097,12 +2006,9 @@ contains
                     ssdev(grididx) = ssdev(grididx)&
                          * model_sigma(grididx)&
                          / obs_sigma(grididx)
-                endif
 
                 if(ssdev(grididx).lt.minssdev) then
                     ssdev(grididx) = minssdev
-                endif
-            endif
         enddo
 
     end subroutine CustomNcReader_updateSsdev
@@ -2126,7 +2032,6 @@ contains
             write(LIS_logunit,*)&
                  "[ERR] Unexpected number of times in scaling file:", ntimes
             call LIS_endrun
-        endif
 
     end function CustomNcReader_timeidx
 
@@ -2141,7 +2046,6 @@ contains
         ! !USES:
 #if(defined USE_NETCDF3 || defined USE_NETCDF4)
         use netcdf
-#endif
         use LIS_coreMod,  only : LIS_rc, LIS_domain
         use LIS_logMod
         use LIS_timeMgrMod
@@ -2206,7 +2110,6 @@ contains
             write(LIS_logunit,*) 'lon size on file: ',lonsize_file
             write(LIS_logunit,*) 'lon size expected: ',reader_struc(n)%nc
             call LIS_endrun
-        endif
 
         ! make sure that latitude axis is inverted
         ios = nf90_inq_varid(nid, "lat", lid)
@@ -2216,7 +2119,6 @@ contains
         if (lat(1) < lat(latsize_file)) then
             write(LIS_logunit,*) "[ERR] Reader expects inverted latitude coordinate"
             call LIS_endrun
-        endif
 
         ! read main variable
         ios = nf90_inq_varid(nid, trim(varname), obsid)
@@ -2236,7 +2138,6 @@ contains
             do c=1, reader_struc(n)%nc
                 if (isnan(uncertainty(c, r))) then
                     uncertainty(c, r) = LIS_rc%udef
-                endif
                 ! fill obs_in and obs_b_in, which are required further on
                 unc_in(c+(r-1)*reader_struc(n)%nc) = uncertainty(c,r)
                 unc_b_in(c+(r-1)*reader_struc(n)%nc) = uncertainty(c, r).ne.LIS_rc%udef
@@ -2253,10 +2154,8 @@ contains
             do c=1, LIS_rc%obs_lnc(k)
                 if(LIS_obs_domain(n,k)%gindex(c,r).ne.-1) then
                     unc_ngrid(LIS_obs_domain(n,k)%gindex(c,r)) = unc_ip(c+(r-1)*LIS_rc%obs_lnc(k))
-                endif
              end do
          end do
-#endif
     end subroutine CustomNcReader_read_mean_obs_uncertainty
 
 !BOP
@@ -2331,7 +2230,6 @@ contains
        kk = LIS_rc%mo
     else
        kk = 1
-    endif
     do t=1,LIS_rc%obs_ngrid(k)
        model_delta(t) = model_xrange(t,kk,2)-model_xrange(t,kk,1)
        obs_delta(t)   = obs_xrange(t,kk,2)-obs_xrange(t,kk,1)
@@ -2346,7 +2244,6 @@ contains
 !        if((obs_xrange(t,kk,nbins)-obs_xrange(t,kk,1)).lt.&
 !           (max_obs_value-min_obs_value)*0.25) then
 !           obs_delta(t) = 0
-!        endif
 
         index_25 = minloc(abs(obs_cdf(t,kk,:) - 0.25))
         index_75 = minloc(abs(obs_cdf(t,kk,:) - 0.75))
@@ -2381,25 +2278,20 @@ contains
               if(obs_tmp.gt.max_obs_value) then
 !                 obs_tmp = max_obs_value
                  obs_tmp = LIS_rc%udef
-              endif
 
               if(obs_tmp.le.min_obs_value) then
 !                 obs_tmp = obs_value(col,row)
                  obs_tmp = LIS_rc%udef
-              endif
               obs_value(col,row) = obs_tmp
            else
               obs_value(col,row) = LIS_rc%udef
-           endif
            if(obs_value(col,row).le.min_obs_value.and.&
                 obs_value(col,row).ne.-9999.0) then
               write(LIS_logunit,*) '[ERR] Problem in CDF scaling of observations in the DA instance ',k
               write(LIS_logunit,*) '[ERR] ',col,row,obs_value(col,row), obs_in
               call LIS_endrun()
-           endif
         else
            obs_value(col,row) = LIS_rc%udef
-        endif
      enddo
    end subroutine CustomNcReader_rescale_with_unsafe_CDF_matching
 
