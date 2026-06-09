@@ -28,7 +28,11 @@ if [[ $VSC_INSTITUTE_CLUSTER == genius ]]; then
         if [[ $VSC_OS_LOCAL == rocky8 ]]; then
             prepend_module_path $ROOT/modules/genius/rocky8/skylake
             load_module LISF/intel-2023b
-        fi
+    
+	elif [[ $VSC_OS_LOCAL == rocky9 ]]; then
+            prepend_module_path $ROOT/modules/genius/rocky9/skylake
+            load_module LISF/intel-2023b
+	fi
     elif [[ $VSC_ARCH_LOCAL == cascadelake ]]; then
         if [[ $VSC_OS_LOCAL == rocky8 ]]; then
             prepend_module_path $ROOT/modules/genius/rocky8/cascadelake
@@ -39,6 +43,9 @@ elif [[ $VSC_INSTITUTE_CLUSTER == wice ]]; then
     if [[ $VSC_ARCH_LOCAL == icelake ]]; then
         if [[ $VSC_OS_LOCAL == rocky8 ]]; then
             prepend_module_path $ROOT/modules/wice/rocky8/icelake
+            load_module LISF/intel-2023b
+	 elif [[ $VSC_OS_LOCAL == rocky9 ]]; then
+            prepend_module_path $ROOT/modules/genius/rocky9/skylake
             load_module LISF/intel-2023b
         fi
     fi
